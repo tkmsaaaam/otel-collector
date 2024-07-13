@@ -1,0 +1,13 @@
+dist:
+  module: github.com/tkmsaaaam/otel-collector/processor
+  name: buffer
+  description: Custom OpenTelemetry Collector binary
+  output_path: .
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.102.0
+processors:
+  - gomod: github.com/tkmsaaaam/otel-collector/processor/traceBufferRedis v0.0.0
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.102.0
+replaces:
+  - github.com/tkmsaaaam/otel-collector/processor/traceBufferRedis => ./traceBufferRedis
