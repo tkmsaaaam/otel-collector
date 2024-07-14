@@ -12,6 +12,7 @@ type Config struct {
 	redisUrl string `mapstructure:"redis_url"`
 	dbName   int    `mapstructure:"db_name"`
 	port     int    `mapstructure:"port"`
+	limit    int    `mapstructure:"limit"`
 }
 
 func createDefaultConfig() component.Config {
@@ -20,6 +21,7 @@ func createDefaultConfig() component.Config {
 		redisUrl: "localhost:6379",
 		dbName:   0,
 		port:     8080,
+		limit:    1000,
 	}
 }
 
@@ -33,5 +35,9 @@ func (c Config) Validate() error {
 	if c.port < 0 || 65535 < c.port {
 		return errors.New("port invalid")
 	}
+	if c.limit < 0 {
+		return errors.New("limit invalid")
+	}
+
 	return nil
 }

@@ -4,13 +4,14 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/processor"
 )
@@ -22,6 +23,13 @@ type traceBuffer struct {
 	unmarshaler ptrace.JSONUnmarshaler
 	duration    time.Duration
 	consumer    consumer.Traces
+	traces      []traceMeta
+	limit       int
+}
+
+type traceMeta struct {
+	time time.Time
+	id   pcommon.TraceID
 }
 
 // Capabilities implements processor.Traces.
@@ -31,12 +39,28 @@ func (t *traceBuffer) Capabilities() consumer.Capabilities {
 
 // ConsumeTraces implements processor.Traces.
 func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
+	var id pcommon.TraceID
+	var time time.Time = time.Now()
+	for i := 0; i < td.ResourceSpans().Len(); i++ {
+		recourceSpan := td.ResourceSpans().At(i)
+		for j := 0; j < recourceSpan.ScopeSpans().Len(); j++ {
+			scopeSpan := recourceSpan.ScopeSpans().At(j)
+			for k := 0; k < scopeSpan.Spans().Len(); k++ {
+				span := scopeSpan.Spans().At(k)
+				span.TraceID()
+				if span.StartTimestamp().AsTime().Before(time) {
+					id = span.TraceID()
+					time = span.StartTimestamp().AsTime()
+				}
+			}
+		}
+	}
+	tb.traces = push(tb.traces, tb.limit, traceMeta{id: id, time: time})
 	b, e := tb.marshaler.MarshalTraces(td)
 	if e != nil {
 		log.Println("err: ", e)
 	}
-	key := "trace:" + strconv.FormatInt(time.Now().Unix(), 10)
-	err := tb.redisClient.Set(context.Background(), key, string(b), tb.duration).Err()
+	err := tb.redisClient.Set(context.Background(), makeKey(id.String()), string(b), tb.duration).Err()
 	if err != nil {
 		log.Println("redis set err:", err)
 	}
@@ -67,6 +91,8 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 		unmarshaler: ptrace.JSONUnmarshaler{},
 		duration:    d,
 		consumer:    consumer,
+		traces:      make([]traceMeta, config.limit),
+		limit:       config.limit,
 	}
 	go func() {
 		http.HandleFunc("/flash", func(w http.ResponseWriter, r *http.Request) {
@@ -79,23 +105,38 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 }
 
 func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
-	rdb := tb.redisClient
-	res := rdb.Keys(context.Background(), "trace:*")
-	keys, _ := res.Result()
-	for _, key := range keys {
-		res, err := rdb.Get(context.Background(), key).Bytes()
-		if err != nil {
-			log.Println(err)
+	t := time.Now().Add(-tb.duration)
+	for _, v := range tb.traces {
+		if t.Before(v.time) {
+			res, err := tb.redisClient.Get(context.Background(), makeKey(v.id.String())).Result()
+			if err != nil {
+				log.Println(err)
+			}
+			trace, _ := tb.unmarshaler.UnmarshalTraces([]byte(res))
+			tb.consumer.ConsumeTraces(context.Background(), trace)
 		}
-		trace, _ := tb.unmarshaler.UnmarshalTraces(res)
-		t, _ := strconv.ParseInt(strings.Replace(key, "trace:", "", 1), 10, 64)
-		log.Println(time.Unix(t, 0))
-		tb.consumer.ConsumeTraces(context.Background(), trace)
 	}
-
 	hello := []byte("Hello World!!!")
 	_, err := w.Write(hello)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func push(base []traceMeta, limit int, meta traceMeta) []traceMeta {
+	var start = 0
+	len := len(base)
+	if len > limit {
+		start = len - limit
+	}
+
+	base = append(base, meta)
+	sort.Slice(base, func(i, j int) bool {
+		return base[i].time.Before(base[j].time)
+	})
+	return base[start:]
+}
+
+func makeKey(id string) string {
+	return "trace:" + id
 }
