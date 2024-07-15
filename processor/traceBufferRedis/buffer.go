@@ -79,10 +79,10 @@ func (t *traceBuffer) Start(ctx context.Context, host component.Host) error {
 }
 
 func newTraceBuffer(context context.Context, config *Config, consumer consumer.Traces) (processor.Traces, error) {
-	d, _ := time.ParseDuration(config.expire)
+	d, _ := time.ParseDuration(config.Expire)
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: config.redisUrl,
-		DB:   config.dbName,
+		Addr: config.RedisUrl,
+		DB:   config.DbName,
 	})
 	tb := &traceBuffer{
 		context:     context,
@@ -91,15 +91,15 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 		unmarshaler: ptrace.JSONUnmarshaler{},
 		duration:    d,
 		consumer:    consumer,
-		traces:      make([]traceMeta, config.limit),
-		limit:       config.limit,
+		traces:      make([]traceMeta, config.Limit),
+		limit:       config.Limit,
 	}
 	go func() {
 		http.HandleFunc("/flash", func(w http.ResponseWriter, r *http.Request) {
 			flashHandler(w, r, tb)
 		})
 		log.Println("Server Start Up........")
-		http.ListenAndServe("localhost:"+strconv.Itoa(config.port), nil)
+		http.ListenAndServe("localhost:"+strconv.Itoa(config.Port), nil)
 	}()
 	return tb, nil
 }

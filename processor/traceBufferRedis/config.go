@@ -8,34 +8,34 @@ import (
 )
 
 type Config struct {
-	expire   string `mapstructure:"expire"`
-	redisUrl string `mapstructure:"redis_url"`
-	dbName   int    `mapstructure:"db_name"`
-	port     int    `mapstructure:"port"`
-	limit    int    `mapstructure:"limit"`
+	Expire   string `mapstructure:"expire"`
+	RedisUrl string `mapstructure:"redis_url"`
+	DbName   int    `mapstructure:"db_name"`
+	Port     int    `mapstructure:"port"`
+	Limit    int    `mapstructure:"limit"`
 }
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		expire:   "1m",
-		redisUrl: "localhost:6379",
-		dbName:   0,
-		port:     8080,
-		limit:    1000,
+		Expire:   "1m",
+		RedisUrl: "localhost:6379",
+		DbName:   0,
+		Port:     8080,
+		Limit:    1000,
 	}
 }
 
 func (c Config) Validate() error {
-	if _, err := time.ParseDuration(c.expire); err != nil {
+	if _, err := time.ParseDuration(c.Expire); err != nil {
 		return err
 	}
-	if c.redisUrl == "" {
+	if c.RedisUrl == "" {
 		return errors.New("redis_url invalid")
 	}
-	if c.port < 0 || 65535 < c.port {
+	if c.Port < 0 || 65535 < c.Port {
 		return errors.New("port invalid")
 	}
-	if c.limit < 0 {
+	if c.Limit <= 0 {
 		return errors.New("limit invalid")
 	}
 
