@@ -23,11 +23,11 @@ type traceBuffer struct {
 	unmarshaler ptrace.JSONUnmarshaler
 	duration    time.Duration
 	consumer    consumer.Traces
-	traces      []traceMeta
+	traces      []*TraceMetadata
 	limit       int
 }
 
-type traceMeta struct {
+type TraceMetadata struct {
 	time time.Time
 	id   pcommon.TraceID
 }
@@ -39,28 +39,20 @@ func (t *traceBuffer) Capabilities() consumer.Capabilities {
 
 // ConsumeTraces implements processor.Traces.
 func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
-	var id pcommon.TraceID
-	var time time.Time = time.Now()
-	for i := 0; i < td.ResourceSpans().Len(); i++ {
-		recourceSpan := td.ResourceSpans().At(i)
-		for j := 0; j < recourceSpan.ScopeSpans().Len(); j++ {
-			scopeSpan := recourceSpan.ScopeSpans().At(j)
-			for k := 0; k < scopeSpan.Spans().Len(); k++ {
-				span := scopeSpan.Spans().At(k)
-				span.TraceID()
-				if span.StartTimestamp().AsTime().Before(time) {
-					id = span.TraceID()
-					time = span.StartTimestamp().AsTime()
-				}
-			}
-		}
+	now := time.Now()
+	metadata := makeTraceMetaData(td, now)
+	if metadata == nil {
+		return nil
 	}
-	tb.traces = push(tb.traces, tb.limit, traceMeta{id: id, time: time})
-	b, e := tb.marshaler.MarshalTraces(td)
+	if metadata.time.Before(now.Add(-tb.duration)) {
+		return nil
+	}
+	tb.traces = push(tb.traces, tb.limit, metadata)
+	bytes, e := tb.marshaler.MarshalTraces(td)
 	if e != nil {
 		log.Println("err: ", e)
 	}
-	err := tb.redisClient.Set(context.Background(), makeKey(id.String()), string(b), tb.duration).Err()
+	err := tb.redisClient.Set(context.Background(), makeKey(metadata.id.String()), string(bytes), tb.duration).Err()
 	if err != nil {
 		log.Println("redis set err:", err)
 	}
@@ -91,7 +83,7 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 		unmarshaler: ptrace.JSONUnmarshaler{},
 		duration:    d,
 		consumer:    consumer,
-		traces:      make([]traceMeta, config.Limit),
+		traces:      make([]*TraceMetadata, config.Limit),
 		limit:       config.Limit,
 	}
 	go func() {
@@ -123,7 +115,7 @@ func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 	}
 }
 
-func push(base []traceMeta, limit int, meta traceMeta) []traceMeta {
+func push(base []*TraceMetadata, limit int, meta *TraceMetadata) []*TraceMetadata {
 	var start = 0
 	len := len(base)
 	if len > limit {
@@ -139,4 +131,27 @@ func push(base []traceMeta, limit int, meta traceMeta) []traceMeta {
 
 func makeKey(id string) string {
 	return "trace:" + id
+}
+
+func makeTraceMetaData(td ptrace.Traces, time time.Time) *TraceMetadata {
+	var b bool = false
+	var id pcommon.TraceID
+	for i := 0; i < td.ResourceSpans().Len(); i++ {
+		recourceSpan := td.ResourceSpans().At(i)
+		for j := 0; j < recourceSpan.ScopeSpans().Len(); j++ {
+			scopeSpan := recourceSpan.ScopeSpans().At(j)
+			for k := 0; k < scopeSpan.Spans().Len(); k++ {
+				span := scopeSpan.Spans().At(k)
+				if span.StartTimestamp().AsTime().Before(time) {
+					b = true
+					id = span.TraceID()
+					time = span.StartTimestamp().AsTime()
+				}
+			}
+		}
+	}
+	if !b {
+		return nil
+	}
+	return &TraceMetadata{id: id, time: time}
 }
