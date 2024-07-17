@@ -2,6 +2,7 @@ package traceBufferRedis
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sort"
@@ -99,19 +100,28 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 	t := time.Now().Add(-tb.duration)
 	for _, v := range tb.traces {
-		if t.Before(v.time) {
-			res, err := tb.redisClient.Get(context.Background(), makeKey(v.id.String())).Result()
-			if err != nil {
-				log.Println(err)
-			}
-			trace, _ := tb.unmarshaler.UnmarshalTraces([]byte(res))
-			tb.consumer.ConsumeTraces(context.Background(), trace)
+		if v.time.Before(t) {
+			continue
 		}
+		res, err := tb.redisClient.Get(context.Background(), makeKey(v.id.String())).Result()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		trace, _ := tb.unmarshaler.UnmarshalTraces([]byte(res))
+		tb.consumer.ConsumeTraces(context.Background(), trace)
 	}
-	hello := []byte("Hello World!!!")
-	_, err := w.Write(hello)
+	res, e := json.Marshal(tb.traces)
+	if e != nil {
+		log.Println("can not serialize", e)
+	} else {
+		errRes := []byte("exported. can not serialize.")
+		w.Write(errRes)
+		return
+	}
+	_, err := w.Write(res)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
 
