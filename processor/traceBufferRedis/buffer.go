@@ -100,6 +100,9 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 	t := time.Now().Add(-tb.duration)
 	for _, v := range tb.traces {
+		if v == nil {
+			continue
+		}
 		if v.time.Before(t) {
 			continue
 		}
@@ -117,9 +120,11 @@ func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 	} else {
 		errRes := []byte("exported. can not serialize.")
 		w.Write(errRes)
+		tb.traces = make([]*TraceMetadata, tb.limit)
 		return
 	}
 	_, err := w.Write(res)
+	tb.traces = make([]*TraceMetadata, tb.limit)
 	if err != nil {
 		log.Println(err)
 	}
