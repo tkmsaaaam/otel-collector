@@ -8,6 +8,62 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
+func TestPush(t *testing.T) {
+	now := time.Now()
+	type Param struct {
+		base  []*TraceMetadata
+		limit int
+		meta  *TraceMetadata
+	}
+	tests := []struct {
+		name  string
+		param Param
+		want  []*TraceMetadata
+	}{
+		{
+			name:  "param size 1, limit 1",
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+		},
+		{
+			name:  "param size 2, limit 1",
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+		},
+		{
+			name:  "param size 1, limit 2",
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 2, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+		},
+		{
+			name:  "param size 1, limit 3",
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 3, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			actual := push(tt.param.base, tt.param.limit, tt.param.meta)
+
+			if len(tt.want) != len(actual) {
+				t.Errorf("push() length actual: \n%v\nwant: \n%v", len(actual), len(tt.want))
+			}
+			for i := 0; i < len(tt.want); i++ {
+				w := tt.want[i]
+				a := actual[i]
+				if w.Id.String() != a.Id.String() {
+					t.Errorf("push() %v id actual: \n%v\nwant: \n%v", i, a.Id, w.Id)
+				}
+				if w.Time.String() != a.Time.String() {
+					t.Errorf("push() %v actual: \n%v\nwant: \n%v", i, a.Time, w.Time)
+				}
+			}
+		})
+	}
+}
+
 func TestMakeTraceMetadata(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -22,12 +78,12 @@ func TestMakeTraceMetadata(t *testing.T) {
 		{
 			name:        "present",
 			setFunction: makeSpan,
-			want:        &TraceMetadata{id: pcommon.NewTraceIDEmpty(), time: time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})},
+			want:        &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})},
 		},
 		{
 			name:        "oldest one",
 			setFunction: makeMultipleSpans,
-			want:        &TraceMetadata{id: pcommon.NewTraceIDEmpty(), time: time.Date(2024, 6, 26, 3, 14, 45, 9, &time.Location{})},
+			want:        &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 6, 26, 3, 14, 45, 9, &time.Location{})},
 		},
 	}
 	for _, tt := range tests {
@@ -43,10 +99,10 @@ func TestMakeTraceMetadata(t *testing.T) {
 					t.Errorf("makeTraceMetaData() actual: \n%v\nwant: \n%v", actual, tt.want)
 				}
 			} else {
-				if tt.want.id.String() != actual.id.String() {
+				if tt.want.Id.String() != actual.Id.String() {
 					t.Errorf("makeTraceMetaData() id: actual: \n%v\nwant: \n%v", actual, tt.want)
 				}
-				if tt.want.time.String() != actual.time.String() {
+				if tt.want.Time.String() != actual.Time.String() {
 					t.Errorf("makeTraceMetaData() time: actual: \n%v\nwant: \n%v", actual, tt.want)
 				}
 			}

@@ -18,19 +18,19 @@ import (
 )
 
 type traceBuffer struct {
-	context     context.Context
-	redisClient *redis.Client
-	marshaler   ptrace.JSONMarshaler
-	unmarshaler ptrace.JSONUnmarshaler
-	duration    time.Duration
-	consumer    consumer.Traces
-	traces      []*TraceMetadata
-	limit       int
+	Context     context.Context
+	RedisClient *redis.Client
+	Marshaler   ptrace.JSONMarshaler
+	Unmarshaler ptrace.JSONUnmarshaler
+	Duration    time.Duration
+	Consumer    consumer.Traces
+	Traces      []*TraceMetadata
+	Limit       int
 }
 
 type TraceMetadata struct {
-	time time.Time
-	id   pcommon.TraceID
+	Time time.Time       `json:"time"`
+	Id   pcommon.TraceID `json:"id"`
 }
 
 // Capabilities implements processor.Traces.
@@ -43,20 +43,25 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 	now := time.Now()
 	metadata := makeTraceMetaData(td, now)
 	if metadata == nil {
+		log.Println("can not make Metadata.")
 		return nil
 	}
-	if metadata.time.Before(now.Add(-tb.duration)) {
+	if metadata.Time.Before(now.Add(-tb.Duration)) {
+		log.Println("consume expired TraceId: ", metadata.Id, ", time: ", metadata.Time)
 		return nil
 	}
-	tb.traces = push(tb.traces, tb.limit, metadata)
-	bytes, e := tb.marshaler.MarshalTraces(td)
+	tb.Traces = push(tb.Traces, tb.Limit, metadata)
+	bytes, e := tb.Marshaler.MarshalTraces(td)
 	if e != nil {
 		log.Println("err: ", e)
+		return nil
 	}
-	err := tb.redisClient.Set(context.Background(), makeKey(metadata.id.String()), string(bytes), tb.duration).Err()
+	err := tb.RedisClient.Set(context.Background(), makeKey(metadata.Id.String()), string(bytes), tb.Duration).Err()
 	if err != nil {
 		log.Println("redis set err:", err)
+		return nil
 	}
+	log.Println("cached TraceId: ", metadata.Id, ", time: ", metadata.Time)
 	// TODO: sampling
 	return nil
 }
@@ -78,14 +83,14 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 		DB:   config.DbName,
 	})
 	tb := &traceBuffer{
-		context:     context,
-		redisClient: redisClient,
-		marshaler:   ptrace.JSONMarshaler{},
-		unmarshaler: ptrace.JSONUnmarshaler{},
-		duration:    d,
-		consumer:    consumer,
-		traces:      make([]*TraceMetadata, config.Limit),
-		limit:       config.Limit,
+		Context:     context,
+		RedisClient: redisClient,
+		Marshaler:   ptrace.JSONMarshaler{},
+		Unmarshaler: ptrace.JSONUnmarshaler{},
+		Duration:    d,
+		Consumer:    consumer,
+		Traces:      make([]*TraceMetadata, config.Limit),
+		Limit:       config.Limit,
 	}
 	go func() {
 		http.HandleFunc("/flash", func(w http.ResponseWriter, r *http.Request) {
@@ -98,48 +103,65 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 }
 
 func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
-	t := time.Now().Add(-tb.duration)
-	for _, v := range tb.traces {
+	t := time.Now().Add(-tb.Duration)
+	traces := []*TraceMetadata{}
+	for _, v := range tb.Traces {
 		if v == nil {
 			continue
 		}
-		if v.time.Before(t) {
+		if v.Time.Before(t) {
+			log.Println("expired TraceId: ", v.Id, ", time: ", v.Time)
 			continue
 		}
-		res, err := tb.redisClient.Get(context.Background(), makeKey(v.id.String())).Result()
+		res, err := tb.RedisClient.Get(context.Background(), makeKey(v.Id.String())).Result()
 		if err != nil {
-			log.Println(err)
+			log.Println("can not get trace Json: ", err)
 			continue
 		}
-		trace, _ := tb.unmarshaler.UnmarshalTraces([]byte(res))
-		tb.consumer.ConsumeTraces(context.Background(), trace)
+		trace, _ := tb.Unmarshaler.UnmarshalTraces([]byte(res))
+		e := tb.Consumer.ConsumeTraces(context.Background(), trace)
+		if e == nil {
+			traces = append(traces, v)
+		}
 	}
-	res, e := json.Marshal(tb.traces)
+	var res []byte
+	var e error = nil
+	res, e = json.Marshal(traces)
 	if e != nil {
 		log.Println("can not serialize", e)
-	} else {
-		errRes := []byte("exported. can not serialize.")
-		w.Write(errRes)
-		tb.traces = make([]*TraceMetadata, tb.limit)
-		return
+		res = []byte("exported. can not serialize.")
 	}
+	tb.Traces = make([]*TraceMetadata, tb.Limit)
 	_, err := w.Write(res)
-	tb.traces = make([]*TraceMetadata, tb.limit)
 	if err != nil {
-		log.Println(err)
+		log.Println("can not write response:", err)
 	}
+}
+
+func (t *TraceMetadata) MarshalJSON() ([]byte, error) {
+	v, err := json.Marshal(&struct {
+		Time time.Time
+		Id   string
+	}{
+		Time: t.Time,
+		Id:   t.Id.String(),
+	})
+	return v, err
 }
 
 func push(base []*TraceMetadata, limit int, meta *TraceMetadata) []*TraceMetadata {
 	var start = 0
 	len := len(base)
-	if len > limit {
-		start = len - limit
+	if len >= limit {
+		start = len - limit + 1
 	}
 
 	base = append(base, meta)
 	sort.Slice(base, func(i, j int) bool {
-		return base[i].time.Before(base[j].time)
+		if base[j] == nil {
+			return false
+		}
+		return base[i] == nil || base[i].Time.Before(base[j].Time)
 	})
 	return base[start:]
 }
@@ -168,5 +190,5 @@ func makeTraceMetaData(td ptrace.Traces, time time.Time) *TraceMetadata {
 	if !b {
 		return nil
 	}
-	return &TraceMetadata{id: id, time: time}
+	return &TraceMetadata{Id: id, Time: time}
 }
