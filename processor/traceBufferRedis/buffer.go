@@ -97,7 +97,7 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 			flashHandler(w, r, tb)
 		})
 		log.Println("Server Start Up........")
-		http.ListenAndServe("localhost:"+strconv.Itoa(config.Port), nil)
+		http.ListenAndServe(config.Host+":"+strconv.Itoa(config.Port), nil)
 	}()
 	return tb, nil
 }
@@ -135,6 +135,8 @@ func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 	_, err := w.Write(res)
 	if err != nil {
 		log.Println("can not write response:", err)
+	} else {
+		log.Println("flashed\n", string(res))
 	}
 }
 
