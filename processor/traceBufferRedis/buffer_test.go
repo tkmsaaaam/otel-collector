@@ -25,6 +25,11 @@ func TestPush(t *testing.T) {
 			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
 			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
 		},
+				{
+			name:  "param size 1(nil), limit 1",
+			param: Param{base: []*TraceMetadata{nil}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+		},
 		{
 			name:  "param size 2, limit 1",
 			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
