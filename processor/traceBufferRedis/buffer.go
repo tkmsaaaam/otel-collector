@@ -102,9 +102,27 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 	return tb, nil
 }
 
-func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
+func flashHandler(w http.ResponseWriter, r *http.Request, tb *traceBuffer) {
 	t := time.Now().Add(-tb.Duration)
 	traces := []*TraceMetadata{}
+
+	var start *time.Time = nil
+	if r.FormValue("start") != "" {
+		s, er := time.Parse(time.RFC3339, r.FormValue("start"))
+		if er != nil {
+			return
+		}
+		start = &s
+	}
+	var end *time.Time = nil
+	if r.FormValue("end") != "" {
+		e, er := time.Parse(time.RFC3339, r.FormValue("end"))
+		if er != nil {
+			return
+		}
+		end = &e
+	}
+
 	for _, v := range tb.Traces {
 		if v == nil {
 			continue
@@ -113,6 +131,14 @@ func flashHandler(w http.ResponseWriter, _ *http.Request, tb *traceBuffer) {
 			log.Println("expired TraceId: ", v.Id, ", time: ", v.Time)
 			continue
 		}
+		if start != nil && start.After(v.Time) {
+			continue
+		}
+
+		if end != nil && end.Before(v.Time) {
+			continue
+		}
+
 		res, err := tb.RedisClient.Get(context.Background(), makeKey(v.Id.String())).Result()
 		if err != nil {
 			log.Println("can not get trace Json: ", err)
