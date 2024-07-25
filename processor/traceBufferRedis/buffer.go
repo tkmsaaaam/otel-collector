@@ -124,21 +124,9 @@ func flashHandler(w http.ResponseWriter, r *http.Request, tb *traceBuffer) {
 	}
 
 	for _, v := range tb.Traces {
-		if v == nil {
+		if isContinue(v, start, end, t) {
 			continue
 		}
-		if v.Time.Before(t) {
-			log.Println("expired TraceId: ", v.Id, ", time: ", v.Time)
-			continue
-		}
-		if start != nil && start.After(v.Time) {
-			continue
-		}
-
-		if end != nil && end.Before(v.Time) {
-			continue
-		}
-
 		res, err := tb.RedisClient.Get(context.Background(), makeKey(v.Id.String())).Result()
 		if err != nil {
 			log.Println("can not get trace Json: ", err)
@@ -219,4 +207,22 @@ func makeTraceMetaData(td ptrace.Traces, time time.Time) *TraceMetadata {
 		return nil
 	}
 	return &TraceMetadata{Id: id, Time: time}
+}
+
+func isContinue(v *TraceMetadata, start, end *time.Time, t time.Time) bool {
+	if v == nil {
+		return true
+	}
+	if v.Time.Before(t) {
+		log.Println("expired TraceId: ", v.Id, ", time: ", v.Time)
+		return true
+	}
+	if start != nil && start.After(v.Time) {
+		return true
+	}
+
+	if end != nil && end.Before(v.Time) {
+		return true
+	}
+	return false
 }
