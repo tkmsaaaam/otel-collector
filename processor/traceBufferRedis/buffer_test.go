@@ -152,10 +152,12 @@ func makeMultipleSpans(base ptrace.Traces) ptrace.Traces {
 func TestIsContinue(t *testing.T) {
 	type Param struct {
 		v     *TraceMetadata
-		start time.Time
-		end   time.Time
+		start *time.Time
+		end   *time.Time
 		t     time.Time
 	}
+	start := time.Date(2024, 7, 10, 0, 0, 0, 0, &time.Location{})
+	end := time.Date(2024, 7, 11, 0, 0, 0, 0, &time.Location{})
 	tests := []struct {
 		name  string
 		param Param
@@ -163,30 +165,45 @@ func TestIsContinue(t *testing.T) {
 	}{
 		{
 			name:  "v is nil",
-			param: Param{v: nil, start: time.Date(2024, 7, 10, 0, 0, 0, 0, &time.Location{}), end: time.Date(2024, 7, 11, 0, 0, 0, 0, &time.Location{}), t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			param: Param{v: nil, start: &start, end: &end, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
 			want:  true,
 		},
 		{
-			name:  "v.Time  is before",
-			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 10, 11, 59, 59, 59, &time.Location{})}, start: time.Date(2024, 7, 10, 0, 0, 0, 0, &time.Location{}), end: time.Date(2024, 7, 11, 0, 0, 0, 0, &time.Location{}), t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			name:  "v.Time is before",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 10, 11, 59, 59, 59, &time.Location{})}, start: &start, end: &end, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
 			want:  true,
 		},
 		{
-			name:  "start  is before",
-			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 9, 23, 59, 59, 59, &time.Location{})}, start: time.Date(2024, 7, 10, 0, 0, 0, 0, &time.Location{}), end: time.Date(2024, 7, 11, 0, 0, 0, 0, &time.Location{}), t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			name:  "start is before",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 9, 23, 59, 59, 59, &time.Location{})}, start: &start, end: &end, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
 			want:  true,
 		},
 		{
-			name:  "end  is after",
-			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 11, 0, 0, 0, 1, &time.Location{})}, start: time.Date(2024, 7, 10, 0, 0, 0, 0, &time.Location{}), end: time.Date(2024, 7, 11, 0, 0, 0, 0, &time.Location{}), t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			name:  "start is nil",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 10, 11, 59, 59, 59, &time.Location{})}, start: nil, end: &end, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
 			want:  true,
+		},
+		{
+			name:  "end is after",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 12, 0, 0, 0, 1, &time.Location{})}, start: &start, end: &end, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			want:  true,
+		},
+		{
+			name:  "end is nil",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 11, 11, 59, 59, 59, &time.Location{})}, start: &start, end: nil, t: time.Date(2024, 7, 11, 12, 0, 0, 0, &time.Location{})},
+			want:  true,
+		},
+		{
+			name:  "false",
+			param: Param{v: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 7, 11, 11, 59, 59, 59, &time.Location{})}, start: &start, end: nil, t: time.Date(2024, 7, 10, 12, 0, 0, 0, &time.Location{})},
+			want:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 
-			actual := isContinue(tt.param.v,&tt.param.start, &tt.param.end, tt.param.t)
+			actual := isContinue(tt.param.v, tt.param.start, tt.param.end, tt.param.t)
 
 			if tt.want != actual {
 				t.Errorf("isContinue() actual: \n%v\nwant: \n%v", actual, tt.want)
