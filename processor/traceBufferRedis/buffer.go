@@ -56,7 +56,7 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 		log.Println("err: ", e)
 		return nil
 	}
-	err := tb.RedisClient.Set(context.Background(), makeKey(metadata.Id.String()), string(bytes), tb.Duration).Err()
+	err := tb.RedisClient.Set(context.Background(), makeKey(metadata.Id), string(bytes), tb.Duration).Err()
 	if err != nil {
 		log.Println("redis set err:", err)
 		return nil
@@ -127,7 +127,7 @@ func flashHandler(w http.ResponseWriter, r *http.Request, tb *traceBuffer) {
 		if isContinue(v, start, end, t) {
 			continue
 		}
-		res, err := tb.RedisClient.Get(context.Background(), makeKey(v.Id.String())).Result()
+		res, err := tb.RedisClient.Get(context.Background(), makeKey(v.Id)).Result()
 		if err != nil {
 			log.Println("can not get trace Json: ", err)
 			continue
@@ -182,8 +182,8 @@ func push(base []*TraceMetadata, limit int, meta *TraceMetadata) []*TraceMetadat
 	return base[start:]
 }
 
-func makeKey(id string) string {
-	return "trace:" + id
+func makeKey(id pcommon.TraceID) string {
+	return "trace:" + id.String()
 }
 
 func makeTraceMetaData(td ptrace.Traces, time time.Time) *TraceMetadata {
