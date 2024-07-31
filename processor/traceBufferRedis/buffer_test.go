@@ -69,6 +69,31 @@ func TestPush(t *testing.T) {
 	}
 }
 
+func TestMakeKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		param pcommon.TraceID
+		want  string
+	}{
+		{
+			name:  "empty key",
+			param: pcommon.NewTraceIDEmpty(),
+			want:  "trace:",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			actual := makeKey(tt.param)
+
+			if len(tt.want) != len(actual) {
+				t.Errorf("push() length actual: \n%v\nwant: \n%v", actual, tt.want)
+			}
+		})
+	}
+}
+
 func TestMakeTraceMetadata(t *testing.T) {
 	tests := []struct {
 		name        string
