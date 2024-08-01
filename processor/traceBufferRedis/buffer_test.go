@@ -80,6 +80,11 @@ func TestMakeKey(t *testing.T) {
 			param: pcommon.NewTraceIDEmpty(),
 			want:  "trace:",
 		},
+		{
+			name:  "key",
+			param: pcommon.TraceID([]byte("0123456789123456")),
+			want:  "trace:6b65796b65796b65796b65796b65796b",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
