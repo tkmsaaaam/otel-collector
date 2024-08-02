@@ -111,6 +111,11 @@ func TestMakeTraceMetadata(t *testing.T) {
 			want:        nil,
 		},
 		{
+			name:        "present with TraceID",
+			setFunction: makeSpanWithTraceId,
+			want:        &TraceMetadata{Id: pcommon.TraceID([]byte("0123456789123456")), Time: time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})},
+		},
+		{
 			name:        "present",
 			setFunction: makeSpan,
 			want:        &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})},
@@ -153,6 +158,18 @@ func makeFutureSpan(base ptrace.Traces) ptrace.Traces {
 	span.SetStartTimestamp(pcommon.NewTimestampFromTime(start))
 	return base
 }
+
+func makeSpanWithTraceId(base ptrace.Traces) ptrace.Traces {
+
+	start := time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})
+	end := time.Date(2024, 6, 26, 3, 14, 45, 12, &time.Location{})
+	span := base.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.SetTraceID(pcommon.TraceID([]byte("0123456789123456")))
+	span.SetEndTimestamp(pcommon.NewTimestampFromTime(end))
+	span.SetStartTimestamp(pcommon.NewTimestampFromTime(start))
+	return base
+}
+
 func makeSpan(base ptrace.Traces) ptrace.Traces {
 	start := time.Date(2024, 6, 26, 3, 14, 45, 10, &time.Location{})
 	end := time.Date(2024, 6, 26, 3, 14, 45, 12, &time.Location{})
