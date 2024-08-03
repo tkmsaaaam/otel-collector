@@ -22,8 +22,8 @@ func TestPush(t *testing.T) {
 	}{
 		{
 			name:  "param size 1, limit 1",
-			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
-			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.TraceID([]byte("0123456789123456")), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now.AddDate(0, 0, -1)}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.TraceID([]byte("0123456789123456")), Time: now}},
 		},
 		{
 			name:  "param size 1(nil), limit 1",
@@ -32,8 +32,8 @@ func TestPush(t *testing.T) {
 		},
 		{
 			name:  "param size 2, limit 1",
-			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}}, limit: 1, meta: &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
-			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now}},
+			param: Param{base: []*TraceMetadata{&TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now.AddDate(0, 0, -1)}, &TraceMetadata{Id: pcommon.NewTraceIDEmpty(), Time: now.AddDate(0, 0, -2)}}, limit: 1, meta: &TraceMetadata{Id: pcommon.TraceID([]byte("0123456789123456")), Time: now}},
+			want:  []*TraceMetadata{&TraceMetadata{Id: pcommon.TraceID([]byte("0123456789123456")), Time: now}},
 		},
 		{
 			name:  "param size 1, limit 2",
