@@ -65,7 +65,7 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 	}
 	log.Println("cached TraceId: ", metadata.Id, ", time: ", metadata.Time)
 	i := rand.Intn(100)
-	if i < tb.Rate {
+	if i <= tb.Rate {
 		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
 		tb.Consumer.ConsumeTraces(ctx, td)
 	}
