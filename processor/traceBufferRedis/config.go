@@ -14,6 +14,7 @@ type Config struct {
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
 	Limit    int    `mapstructure:"limit"`
+	Rate     int    `mapstructure:"rate"`
 }
 
 func createDefaultConfig() component.Config {
@@ -24,6 +25,7 @@ func createDefaultConfig() component.Config {
 		Host:     "localhost",
 		Port:     8080,
 		Limit:    1000,
+		Rate:     0,
 	}
 }
 
@@ -42,6 +44,10 @@ func (c Config) Validate() error {
 	}
 	if c.Limit <= 0 {
 		return errors.New("limit invalid")
+	}
+
+	if c.Rate < 0 || 100 < c.Rate {
+		return errors.New("rate is invalid")
 	}
 
 	return nil

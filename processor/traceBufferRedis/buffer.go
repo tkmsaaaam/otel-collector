@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/processor"
+	"golang.org/x/exp/rand"
 )
 
 type traceBuffer struct {
@@ -26,6 +27,7 @@ type traceBuffer struct {
 	Consumer    consumer.Traces
 	Traces      []*TraceMetadata
 	Limit       int
+	Rate        int
 }
 
 type TraceMetadata struct {
@@ -62,7 +64,12 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 		return nil
 	}
 	log.Println("cached TraceId: ", metadata.Id, ", time: ", metadata.Time)
-	// TODO: sampling
+	i := rand.Intn(100)
+	if i < tb.Rate {
+		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
+		tb.Consumer.ConsumeTraces(ctx, td)
+	}
+
 	return nil
 }
 
@@ -91,6 +98,7 @@ func newTraceBuffer(context context.Context, config *Config, consumer consumer.T
 		Consumer:    consumer,
 		Traces:      make([]*TraceMetadata, config.Limit),
 		Limit:       config.Limit,
+		Rate:        config.Rate,
 	}
 	go func() {
 		http.HandleFunc("/flash", func(w http.ResponseWriter, r *http.Request) {
