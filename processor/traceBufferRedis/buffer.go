@@ -48,6 +48,13 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 		log.Println("can not make Metadata.")
 		return nil
 	}
+
+	i := rand.Intn(100)
+	if i <= tb.Rate {
+		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
+		tb.Consumer.ConsumeTraces(ctx, td)
+	}
+
 	if metadata.Time.Before(now.Add(-tb.Duration)) {
 		log.Println("consume expired TraceId: ", metadata.Id, ", time: ", metadata.Time)
 		return nil
@@ -64,11 +71,6 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 		return nil
 	}
 	log.Println("cached TraceId: ", metadata.Id, ", time: ", metadata.Time)
-	i := rand.Intn(100)
-	if i <= tb.Rate {
-		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
-		tb.Consumer.ConsumeTraces(ctx, td)
-	}
 
 	return nil
 }
