@@ -53,7 +53,10 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 	i := rand.Intn(100)
 	if i <= tb.Rate {
 		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
-		tb.Consumer.ConsumeTraces(ctx, td)
+		err := tb.Consumer.ConsumeTraces(ctx, td)
+		if err != nil {
+			log.Println("consume failed", err)
+		}
 	}
 
 	if metadata.Time.Before(now.Add(-tb.Duration)) {
