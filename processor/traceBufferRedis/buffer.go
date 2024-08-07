@@ -3,6 +3,7 @@ package traceBufferRedis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"sort"
@@ -45,7 +46,7 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 	now := time.Now()
 	metadata := makeTraceMetaData(td, now)
 	if metadata == nil {
-		log.Println("can not make Metadata.")
+		log.Println("can not make Metadata.(expired or incomplete)")
 		return nil
 	}
 
