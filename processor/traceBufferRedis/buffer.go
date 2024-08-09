@@ -50,8 +50,7 @@ func (tb *traceBuffer) ConsumeTraces(ctx context.Context, td ptrace.Traces) erro
 		return nil
 	}
 
-	i := rand.Intn(100)
-	if i <= tb.Rate {
+	if shouldSample(tb.Rate) {
 		log.Println("sampled TraceId: ", metadata.Id, ", time: ", metadata.Time)
 		err := tb.Consumer.ConsumeTraces(ctx, td)
 		if err != nil {
@@ -239,4 +238,9 @@ func isContinue(v *TraceMetadata, start, end *time.Time, t time.Time) bool {
 		return true
 	}
 	return false
+}
+
+func shouldSample(i int) bool {
+	j := rand.Intn(100)
+	return j <= i
 }
