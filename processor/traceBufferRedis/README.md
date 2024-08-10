@@ -28,10 +28,12 @@ In this way, traces are sent to the tracing system at the appropriate sampling r
 processors:
   traceBufferRedis:
     expire: 1m
-    redis_url: localhost:6379
+    redis_url: redis:6379
     db_name: 0
+    host: "0.0.0.0"
     port: 8080
     limit: 1000
+    rate: 50
 ```
 
 ## Author
