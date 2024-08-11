@@ -241,6 +241,12 @@ func isContinue(v *TraceMetadata, start, end *time.Time, t time.Time) bool {
 }
 
 func shouldSample(i int) bool {
+	if i == 100 {
+		return true
+	}
+	if i == 0 {
+		return false
+	}
 	j := rand.Intn(100)
 	return j <= i
 }
