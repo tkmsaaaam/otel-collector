@@ -3,7 +3,6 @@ package traceBufferRedis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"sort"

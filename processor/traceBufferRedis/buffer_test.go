@@ -268,3 +268,33 @@ func TestIsContinue(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldSample(t *testing.T) {
+	tests := []struct {
+		name  string
+		param int
+		want  bool
+	}{
+		{
+			name:  "not sample",
+			param: 0,
+			want:  false,
+		},
+		{
+			name:  "sample",
+			param: 100,
+			want:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			actual := shouldSample(tt.param)
+
+			if tt.want != actual {
+				t.Errorf("shouldSample() actual: \n%v\nwant: \n%v", actual, tt.want)
+			}
+		})
+	}
+}
